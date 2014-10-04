@@ -76,7 +76,7 @@ int main(void)
   for (;;) {
     uint8_t MIDICommand = 0;
     uint8_t MIDIPitch;
-    uint8_t r = PORTD & 1;
+    uint8_t r = PIND & 1;
 
     if (r != state) {
       MIDICommand = r ? MIDI_COMMAND_NOTE_ON : MIDI_COMMAND_NOTE_OFF;
@@ -112,8 +112,8 @@ void SetupHardware(void)
   /* Disable clock division */
   clock_prescale_set(clock_div_1);
 
-  DDRD = 1;
-
+  DDRD = 0;
+  USB_Init();
 }
 
 
@@ -121,13 +121,13 @@ void SetupHardware(void)
 /** Event handler for the library USB Connection event. */
 void EVENT_USB_Device_Connect(void)
 {
-  //LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
+  LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
 }
 
 /** Event handler for the library USB Disconnection event. */
 void EVENT_USB_Device_Disconnect(void)
 {
-  //LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
+  LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 }
 
 /** Event handler for the library USB Configuration Changed event. */
@@ -137,7 +137,7 @@ void EVENT_USB_Device_ConfigurationChanged(void)
 
   ConfigSuccess &= MIDI_Device_ConfigureEndpoints(&Keyboard_MIDI_Interface);
 
-  //LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
+  LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
