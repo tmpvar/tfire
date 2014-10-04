@@ -67,7 +67,6 @@
 
 	/* Function Prototypes: */
 		void SetupHardware(void);
-		void CheckJoystickMovement(void);
 
 		void EVENT_USB_Device_Connect(void);
 		void EVENT_USB_Device_Disconnect(void);
