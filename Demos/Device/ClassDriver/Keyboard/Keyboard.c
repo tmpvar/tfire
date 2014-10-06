@@ -44,102 +44,92 @@ static uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
  *  within a device can be differentiated from one another.
  */
 USB_ClassInfo_HID_Device_t Keyboard_HID_Interface =
-	{
-		.Config =
-			{
-				.InterfaceNumber              = INTERFACE_ID_Keyboard,
-				.ReportINEndpoint             =
-					{
-						.Address              = KEYBOARD_EPADDR,
-						.Size                 = KEYBOARD_EPSIZE,
-						.Banks                = 1,
-					},
-				.PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
-				.PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
-			},
-	};
+  {
+    .Config =
+      {
+        .InterfaceNumber              = INTERFACE_ID_Keyboard,
+        .ReportINEndpoint             =
+          {
+            .Address              = KEYBOARD_EPADDR,
+            .Size                 = KEYBOARD_EPSIZE,
+            .Banks                = 1,
+          },
+        .PrevReportINBuffer           = PrevKeyboardHIDReportBuffer,
+        .PrevReportINBufferSize       = sizeof(PrevKeyboardHIDReportBuffer),
+      },
+  };
 
 
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
  */
+
+uint8_t state = 0;
+bool pressed = false;
 int main(void)
 {
-	SetupHardware();
+  SetupHardware();
+  GlobalInterruptEnable();
+  _delay_ms(10);
+  for (;;)
+  {
+    if ((PIND & 1) == 0) {
+      if (state == 1) {
+        pressed = true;
+        state = 0;
+      }
+    } else {
+      state = 1;
+    }
 
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
-	GlobalInterruptEnable();
-
-	for (;;)
-	{
-		HID_Device_USBTask(&Keyboard_HID_Interface);
-		USB_USBTask();
-	}
+    HID_Device_USBTask(&Keyboard_HID_Interface);
+    USB_USBTask();
+  }
 }
 
 /** Configures the board hardware and chip peripherals for the demo's functionality. */
 void SetupHardware()
 {
-#if (ARCH == ARCH_AVR8)
-	/* Disable watchdog if enabled by bootloader/fuses */
-	MCUSR &= ~(1 << WDRF);
-	wdt_disable();
+  /* Disable watchdog if enabled by bootloader/fuses */
+  MCUSR &= ~(1 << WDRF);
+  wdt_disable();
 
-	/* Disable clock division */
-	clock_prescale_set(clock_div_1);
-#elif (ARCH == ARCH_XMEGA)
-	/* Start the PLL to multiply the 2MHz RC oscillator to 32MHz and switch the CPU core to run from it */
-	XMEGACLK_StartPLL(CLOCK_SRC_INT_RC2MHZ, 2000000, F_CPU);
-	XMEGACLK_SetCPUClockSource(CLOCK_SRC_PLL);
+  /* Disable clock division */
+  clock_prescale_set(clock_div_1);
 
-	/* Start the 32MHz internal RC oscillator and start the DFLL to increase it to 48MHz using the USB SOF as a reference */
-	XMEGACLK_StartInternalOscillator(CLOCK_SRC_INT_RC32MHZ);
-	XMEGACLK_StartDFLL(CLOCK_SRC_INT_RC32MHZ, DFLL_REF_INT_USBSOF, F_USB);
+  DDRD = 0;
 
-	PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
-#endif
-
-	/* Hardware Initialization */
-	Joystick_Init();
-	LEDs_Init();
-	Buttons_Init();
-	USB_Init();
+  /* Hardware Initialization */
+  USB_Init();
 }
 
 /** Event handler for the library USB Connection event. */
-void EVENT_USB_Device_Connect(void)
-{
-	LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
-}
+void EVENT_USB_Device_Connect(void) {}
 
 /** Event handler for the library USB Disconnection event. */
-void EVENT_USB_Device_Disconnect(void)
-{
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
-}
+void EVENT_USB_Device_Disconnect(void) {}
 
 /** Event handler for the library USB Configuration Changed event. */
 void EVENT_USB_Device_ConfigurationChanged(void)
 {
-	bool ConfigSuccess = true;
+  bool ConfigSuccess = true;
 
-	ConfigSuccess &= HID_Device_ConfigureEndpoints(&Keyboard_HID_Interface);
+  ConfigSuccess &= HID_Device_ConfigureEndpoints(&Keyboard_HID_Interface);
 
-	USB_Device_EnableSOFEvents();
+  USB_Device_EnableSOFEvents();
 
-	LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
 void EVENT_USB_Device_ControlRequest(void)
 {
-	HID_Device_ProcessControlRequest(&Keyboard_HID_Interface);
+  HID_Device_ProcessControlRequest(&Keyboard_HID_Interface);
 }
 
 /** Event handler for the USB device Start Of Frame event. */
 void EVENT_USB_Device_StartOfFrame(void)
 {
-	HID_Device_MillisecondElapsed(&Keyboard_HID_Interface);
+  HID_Device_MillisecondElapsed(&Keyboard_HID_Interface);
 }
 
 /** HID class driver callback function for the creation of HID reports to the host.
@@ -158,34 +148,13 @@ bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDIn
                                          void* ReportData,
                                          uint16_t* const ReportSize)
 {
-	USB_KeyboardReport_Data_t* KeyboardReport = (USB_KeyboardReport_Data_t*)ReportData;
+  USB_MediaReport_Data_t* KeyboardReport = (USB_MediaReport_Data_t*)ReportData;
 
-	uint8_t JoyStatus_LCL    = Joystick_GetStatus();
-	uint8_t ButtonStatus_LCL = Buttons_GetStatus();
+  KeyboardReport->PlayPause = pressed;
+  pressed = false;
 
-	uint8_t UsedKeyCodes = 0;
-
-	if (JoyStatus_LCL & JOY_UP)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_A;
-	else if (JoyStatus_LCL & JOY_DOWN)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_B;
-
-	if (JoyStatus_LCL & JOY_LEFT)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_C;
-	else if (JoyStatus_LCL & JOY_RIGHT)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_D;
-
-	if (JoyStatus_LCL & JOY_PRESS)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_E;
-
-	if (ButtonStatus_LCL & BUTTONS_BUTTON1)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_F;
-
-	if (UsedKeyCodes)
-	  KeyboardReport->Modifier = HID_KEYBOARD_MODIFIER_LEFTSHIFT;
-
-	*ReportSize = sizeof(USB_KeyboardReport_Data_t);
-	return false;
+  *ReportSize = sizeof(USB_MediaReport_Data_t);
+  return false;
 }
 
 /** HID class driver callback function for the processing of HID reports from the host.
@@ -202,18 +171,6 @@ void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDI
                                           const void* ReportData,
                                           const uint16_t ReportSize)
 {
-	uint8_t  LEDMask   = LEDS_NO_LEDS;
-	uint8_t* LEDReport = (uint8_t*)ReportData;
 
-	if (*LEDReport & HID_KEYBOARD_LED_NUMLOCK)
-	  LEDMask |= LEDS_LED1;
-
-	if (*LEDReport & HID_KEYBOARD_LED_CAPSLOCK)
-	  LEDMask |= LEDS_LED3;
-
-	if (*LEDReport & HID_KEYBOARD_LED_SCROLLLOCK)
-	  LEDMask |= LEDS_LED4;
-
-	LEDs_SetAllLEDs(LEDMask);
 }
 

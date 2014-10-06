@@ -45,10 +45,28 @@
  */
 const USB_Descriptor_HIDReport_Datatype_t PROGMEM KeyboardReport[] =
 {
-	/* Use the HID class driver's standard Keyboard report.
-	 *   Max simultaneous keys: 6
-	 */
-	HID_DESCRIPTOR_KEYBOARD(6)
+	HID_RI_USAGE_PAGE(8, 0x0C), /* Consumer Page */
+	HID_RI_USAGE(8, 0x01), /* Consumer Controls */
+	HID_RI_COLLECTION(8, 0x01), /* Application */
+		HID_RI_USAGE(8, 0xB0), /* Play */
+		HID_RI_USAGE(8, 0xB1), /* Pause */
+		HID_RI_USAGE(8, 0xB3), /* Fast Forward */
+		HID_RI_USAGE(8, 0xB4), /* Rewind */
+		HID_RI_USAGE(8, 0xB5), /* Next Track */
+		HID_RI_USAGE(8, 0xB6), /* Previous Track */
+		HID_RI_USAGE(8, 0xB7), /* Stop */
+		HID_RI_USAGE(8, 0xCD), /* Play/Pause (toggle) */
+		HID_RI_USAGE(8, 0xE2), /* Mute */
+		HID_RI_USAGE(8, 0xE9), /* Volume Up */
+		HID_RI_USAGE(8, 0xEA), /* Volume Down */
+		HID_RI_REPORT_SIZE(8, 0x01),
+		HID_RI_REPORT_COUNT(8, 0x0B),
+		HID_RI_LOGICAL_MINIMUM(8, 0),
+		HID_RI_LOGICAL_MAXIMUM(8, 1),
+		HID_RI_INPUT(8, HID_IOF_DATA | HID_IOF_VARIABLE | HID_IOF_RELATIVE),
+		HID_RI_REPORT_COUNT(8, 0x05),
+		HID_RI_INPUT(8, HID_IOF_CONSTANT),
+	HID_RI_END_COLLECTION(0),
 };
 
 /** Device descriptor structure. This descriptor, located in FLASH memory, describes the overall
